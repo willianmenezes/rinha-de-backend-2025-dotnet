@@ -1,0 +1,29 @@
+﻿{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5214",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DB_CONNECTION": "User ID=postgres;Password=postgres;Host=localhost;Port=3333;Database=rinha;",
+        "PAYMENT_PROCESSOR": "http://localhost:8001",
+        "PAYMENT_PROCESSOR_FALLBACK": "http://localhost:8002"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7299;http://localhost:5214",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DB_CONNECTION": "User ID=postgres;Password=postgres;Host=localhost;Port=3333;Database=rinha;",
+        "PAYMENT_PROCESSOR": "http://localhost:8001",
+        "PAYMENT_PROCESSOR_FALLBACK": "http://localhost:8002"
+      }
+    }
+  }
+}
