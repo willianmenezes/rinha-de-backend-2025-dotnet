@@ -1,41 +1,35 @@
 ﻿using System.Net;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using RinhaBackend.Data;
+using StackExchange.Redis;
 
 namespace RinhaBackend.Infra;
 
 public class BestClientService
 {
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IDatabase _distributedCache;
 
-    public BestClientService(IHttpClientFactory httpClientFactory)
+    public BestClientService(
+        IHttpClientFactory httpClientFactory,
+        IConnectionMultiplexer connectionMultiplexer)
     {
         _httpClientFactory = httpClientFactory;
+        _distributedCache = connectionMultiplexer.GetDatabase();
     }
 
-    public async Task<string> GetBestClient(RinhaDb rinhaDb, CancellationToken cancellationToken = default)
+    public async Task<string> GetBestClient(CancellationToken cancellationToken = default)
     {
-        var healthCheck = await rinhaDb.HealthCheck
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (healthCheck == null)
+        var cacheKey = "BestClientHealthCheck";
+        var healthCheckString = await _distributedCache.StringGetAsync(cacheKey);
+        
+        if (!string.IsNullOrEmpty(healthCheckString))
         {
-            healthCheck = new HealthCheck
+            var check = JsonSerializer.Deserialize<HealthCheck>(healthCheckString!);
+            if (check?.BestClient != null)
             {
-                Id = Guid.NewGuid(),
-                BestClient = "default",
-                RequestedAt = DateTime.UtcNow,
-            };
-
-            await rinhaDb.HealthCheck.AddAsync(healthCheck, cancellationToken);
-            await rinhaDb.SaveChangesAsync(cancellationToken);
-            return healthCheck.BestClient;
-        }
-
-        if (healthCheck.RequestedAt > DateTime.UtcNow.AddSeconds(-5))
-        {
-            return healthCheck.BestClient!;
+                return check.BestClient;
+            }
         }
 
         var paymentClientDefault = _httpClientFactory.CreateClient("default");
@@ -49,7 +43,10 @@ public class BestClientService
 
         _ = await Task.WhenAll(responseDefault, responseFallback);
 
-        healthCheck.RequestedAt = DateTime.UtcNow;
+        var healthCheck = new HealthCheck
+        {
+            BestClient = "default"
+        };
 
         if (responseDefault.Result?.Failing ?? false)
         {
@@ -65,9 +62,12 @@ public class BestClientService
             responseDefault.Result?.MinResponseTime <= responseFallback.Result?.MinResponseTime
                 ? "default"
                 : "fallback";
+        
+        await _distributedCache.StringSetAsync(
+            cacheKey,
+            JsonSerializer.Serialize(healthCheck),
+            TimeSpan.FromSeconds(5));
 
-        rinhaDb.HealthCheck.Update(healthCheck);
-        await rinhaDb.SaveChangesAsync(cancellationToken);
         return healthCheck.BestClient;
     }
 

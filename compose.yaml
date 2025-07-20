@@ -1,25 +1,19 @@
 ﻿version: '3.9'
 
 services:
-  db:
-    image: postgres:17-alpine
+  redis:
+    image: redis:7.2-alpine
     networks:
       - backend
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=rinha
     deploy:
-      resources: 
+      resources:
         limits:
-          cpus: "0.5"
-          memory: "100MB"
-    container_name: app-payment-db
-    hostname: app-payment-db
+          cpus: "0.7"
+          memory: "130MB"
+    container_name: app-payment-redis
+    hostname: app-payment-redis
     ports:
-      - "3333:5432"
+      - "6379:6379"
   app-01:
     build:
       context: .
@@ -30,16 +24,16 @@ services:
       - backend
       - payment-processor
     depends_on:
-      - db
+      - redis
     environment:
-      - DB_CONNECTION=Host=app-payment-db;Port=5432;Database=rinha;Username=postgres;Password=postgres;Minimum Pool Size=15;Maximum Pool Size=20;Connection Pruning Interval=3
+      - CACHE=app-payment-redis:6379
       - PAYMENT_PROCESSOR=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
     deploy:
       resources:
         limits:
-          cpus: "0.3"
-          memory: "115MB"
+          cpus: "0.25"
+          memory: "100MB"
   app-02:
     build:
       context: .
@@ -50,16 +44,16 @@ services:
       - backend
       - payment-processor
     depends_on:
-      - db
+      - redis
     environment:
-      - DB_CONNECTION=Host=app-payment-db;Port=5432;Database=rinha;Username=postgres;Password=postgres;Minimum Pool Size=15;Maximum Pool Size=20;Connection Pruning Interval=3
+      - CACHE=app-payment-redis:6379
       - PAYMENT_PROCESSOR=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
     deploy:
       resources:
         limits:
-          cpus: "0.3"
-          memory: "115MB"
+          cpus: "0.25"
+          memory: "100MB"
   nginx:
     image: nginx:1.25-alpine
     container_name: app-payment-nginx
@@ -75,7 +69,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.4"
+          cpus: "0.3"
           memory: "20MB"
 networks:
   backend:

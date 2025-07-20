@@ -1,9 +1,8 @@
-﻿using System.Net;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Threading.Channels;
-using Microsoft.EntityFrameworkCore;
-using RinhaBackend.Data;
+using Microsoft.Extensions.Caching.Distributed;
 using RinhaBackend.Infra;
+using StackExchange.Redis;
 
 namespace RinhaBackend.Controllers;
 
@@ -11,13 +10,16 @@ public class PaymentHostedJob : BackgroundService
 {
     private readonly Channel<PaymentProcessorRequest> _channel;
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IDatabase _distributedCache;
 
     public PaymentHostedJob(
         Channel<PaymentProcessorRequest> channel,
-        IServiceScopeFactory serviceScopeFactory)
+        IServiceScopeFactory serviceScopeFactory,
+        IConnectionMultiplexer connectionMultiplexer)
     {
         _channel = channel;
         _serviceScopeFactory = serviceScopeFactory;
+        _distributedCache = connectionMultiplexer.GetDatabase();
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -28,31 +30,32 @@ public class PaymentHostedJob : BackgroundService
 
             using var scope = _serviceScopeFactory.CreateScope();
 
-            var rinhaDb = scope.ServiceProvider.GetRequiredService<RinhaDb>();
             var bestClientService = scope.ServiceProvider.GetRequiredService<BestClientService>();
             var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
-            var bestClient = await bestClientService.GetBestClient(rinhaDb!, cancellationToken);
+            var bestClient = await bestClientService.GetBestClient(cancellationToken);
             var paymentClientDefault = httpClientFactory.CreateClient(bestClient);
 
             var fullUrl = bestClient == "default"
                 ? $"{Environment.GetEnvironmentVariable("PAYMENT_PROCESSOR")}/payments"
                 : $"{Environment.GetEnvironmentVariable("PAYMENT_PROCESSOR_FALLBACK")}/payments";
-            
+
             try
             {
                 await SendPaymentAsync(paymentProcessorRequest, paymentClientDefault, fullUrl, cancellationToken);
             }
             catch (Exception)
             {
-               continue;
+                continue;
             }
 
             var payment = bestClient == "default"
                 ? paymentProcessorRequest.ToPayment()
                 : paymentProcessorRequest.ToPaymentFallback();
 
-            await rinhaDb.Payments.AddAsync(payment, cancellationToken);
-            await rinhaDb.SaveChangesAsync(cancellationToken);
+            await _distributedCache.StringSetAsync(
+                $"Payment-{paymentProcessorRequest.CorrelationId}",
+                JsonSerializer.Serialize(payment),
+                TimeSpan.FromDays(1));
         }
     }
 

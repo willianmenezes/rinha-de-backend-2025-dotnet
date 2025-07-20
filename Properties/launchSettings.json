@@ -8,7 +8,7 @@
       "applicationUrl": "http://localhost:5214",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "DB_CONNECTION": "User ID=postgres;Password=postgres;Host=localhost;Port=3333;Database=rinha;",
+        "CACHE": "localhost:6379",
         "PAYMENT_PROCESSOR": "http://localhost:8001",
         "PAYMENT_PROCESSOR_FALLBACK": "http://localhost:8002"
       }
@@ -20,7 +20,7 @@
       "applicationUrl": "https://localhost:7299;http://localhost:5214",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "DB_CONNECTION": "User ID=postgres;Password=postgres;Host=localhost;Port=3333;Database=rinha;",
+        "CACHE": "localhost:6379",
         "PAYMENT_PROCESSOR": "http://localhost:8001",
         "PAYMENT_PROCESSOR_FALLBACK": "http://localhost:8002"
       }
