@@ -12,12 +12,14 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=rinha
     deploy:
-      resources:
+      resources: 
         limits:
-          cpus: "0.7"
+          cpus: "0.5"
           memory: "100MB"
     container_name: app-payment-db
     hostname: app-payment-db
+    ports:
+      - "3333:5432"
   app-01:
     build:
       context: .
@@ -36,7 +38,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.25"
+          cpus: "0.3"
           memory: "115MB"
   app-02:
     build:
@@ -56,7 +58,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.25"
+          cpus: "0.3"
           memory: "115MB"
   nginx:
     image: nginx:1.25-alpine
@@ -73,7 +75,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.3"
+          cpus: "0.4"
           memory: "20MB"
 networks:
   backend:
