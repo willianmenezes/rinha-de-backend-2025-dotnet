@@ -1,7 +1,9 @@
 ﻿using System.Globalization;
 using System.Text.Json;
+using RinhaBackend.Controllers;
+using RinhaBackend.Models;
 
-namespace RinhaBackend.Infra;
+namespace RinhaBackend;
 
 public sealed class PaymentClient
 {

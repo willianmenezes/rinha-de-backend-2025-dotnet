@@ -1,4 +1,4 @@
-﻿namespace RinhaBackend.Data;
+﻿namespace RinhaBackend.Models;
 
 public sealed record Payment
 {

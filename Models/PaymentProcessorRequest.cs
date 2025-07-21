@@ -1,6 +1,4 @@
-﻿using RinhaBackend.Data;
-
-namespace RinhaBackend.Infra;
+﻿namespace RinhaBackend.Models;
 
 public sealed record PaymentProcessorRequest
 {

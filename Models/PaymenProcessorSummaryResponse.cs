@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace RinhaBackend.Infra;
+namespace RinhaBackend.Models;
 
 public record struct PaymenProcessorSummaryResponse
 {

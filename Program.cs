@@ -1,6 +1,7 @@
 using System.Threading.Channels;
+using RinhaBackend;
 using RinhaBackend.Controllers;
-using RinhaBackend.Infra;
+using RinhaBackend.Models;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +17,7 @@ builder.Services.AddHttpClient("fallback",
     {
         client.BaseAddress = new Uri(Environment.GetEnvironmentVariable("PAYMENT_PROCESSOR_FALLBACK")!);
     });
+
 builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(Environment.GetEnvironmentVariable("CACHE")!));
 builder.Services.AddScoped<PaymentClient>();
 builder.Services.AddScoped<BestClientService>();

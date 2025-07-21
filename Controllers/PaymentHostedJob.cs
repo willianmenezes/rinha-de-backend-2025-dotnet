@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
 using System.Threading.Channels;
-using Microsoft.Extensions.Caching.Distributed;
-using RinhaBackend.Infra;
+using RinhaBackend.Models;
 using StackExchange.Redis;
 
 namespace RinhaBackend.Controllers;
@@ -32,7 +31,9 @@ public class PaymentHostedJob : BackgroundService
 
             var bestClientService = scope.ServiceProvider.GetRequiredService<BestClientService>();
             var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+            
             var bestClient = await bestClientService.GetBestClient(cancellationToken);
+            
             var paymentClientDefault = httpClientFactory.CreateClient(bestClient);
 
             var fullUrl = bestClient == "default"

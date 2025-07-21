@@ -1,9 +1,9 @@
 ﻿using System.Net;
 using System.Text.Json;
-using RinhaBackend.Data;
+using RinhaBackend.Models;
 using StackExchange.Redis;
 
-namespace RinhaBackend.Infra;
+namespace RinhaBackend;
 
 public class BestClientService
 {
@@ -20,7 +20,7 @@ public class BestClientService
 
     public async Task<string> GetBestClient(CancellationToken cancellationToken = default)
     {
-        var cacheKey = "BestClientHealthCheck";
+        const string cacheKey = "BestClientHealthCheck";
         var healthCheckString = await _distributedCache.StringGetAsync(cacheKey);
         
         if (!string.IsNullOrEmpty(healthCheckString))

@@ -1,8 +1,7 @@
 using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.Mvc;
-using RinhaBackend.Data;
-using RinhaBackend.Infra;
+using RinhaBackend.Models;
 using StackExchange.Redis;
 
 namespace RinhaBackend.Controllers;
@@ -10,48 +9,40 @@ namespace RinhaBackend.Controllers;
 [ApiController]
 public class PaymentsController : ControllerBase
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly PaymentClient _paymentClient;
     private readonly Channel<PaymentProcessorRequest> _channel;
-    private readonly BestClientService _bestClientService;
     private readonly IDatabase _databaseRedis;
     private IEnumerable<RedisKey> _chavesRedis;
 
     public PaymentsController(
-        IHttpClientFactory httpClientFactory,
-        PaymentClient paymentClient,
         Channel<PaymentProcessorRequest> channel,
-        BestClientService bestClientService,
         IConnectionMultiplexer connectionMultiplexer)
     {
-        _httpClientFactory = httpClientFactory;
-        _paymentClient = paymentClient;
         _channel = channel;
-        _bestClientService = bestClientService;
         _databaseRedis = connectionMultiplexer.GetDatabase();
         _chavesRedis = connectionMultiplexer.GetServer(connectionMultiplexer.GetEndPoints()[0]).Keys();
     }
 
     [HttpGet("payments-summary")]
-    public async Task<IActionResult> GetSummary(
-        [FromQuery] PaymenteSummaryRequest request,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> GetSummary([FromQuery] PaymenteSummaryRequest request)
     {
         var allItens = _chavesRedis.Where(x => x.ToString().StartsWith("Payment"));
 
         var paymentJson = await _databaseRedis.StringGetAsync(allItens.ToArray());
 
         var payments = paymentJson
-            .Select(item => JsonSerializer.Deserialize<Payment>(item!))
-            .ToList();
+            .Select(item => JsonSerializer.Deserialize<Payment>(item!));
 
         var paymentsFiltrados = payments
-            .Where(p => p.RequestedAt >= request.From && p.RequestedAt <= request.To);
+            .Where(p =>
+                p is not null &&
+                p.RequestedAt >= request.From && 
+                p.RequestedAt <= request.To)
+            .ToList();
 
-        var totalRequestsDefault = paymentsFiltrados.Count(x => x.Fallback is false);
-        var totalAmountDefault = paymentsFiltrados.Where(x => x.Fallback is false).Sum(p => p.Amount);
-        var totalRequestsFallback = paymentsFiltrados.Count(x => x.Fallback);
-        var totalAmountFallback = paymentsFiltrados.Where(x => x.Fallback).Sum(p => p.Amount);
+        var totalRequestsDefault = paymentsFiltrados.Count(x => x!.Fallback is false);
+        var totalAmountDefault = paymentsFiltrados.Where(x => x!.Fallback is false).Sum(p => p!.Amount);
+        var totalRequestsFallback = paymentsFiltrados.Count(x => x!.Fallback);
+        var totalAmountFallback = paymentsFiltrados.Where(x => x!.Fallback).Sum(p => p!.Amount);
 
         var response = new PaymenteSummaryResponse()
         {
@@ -68,18 +59,18 @@ public class PaymentsController : ControllerBase
         };
         return Ok(response);
     }
-
-    [HttpGet("admin/payments-summary")]
-    public async Task<IActionResult> GetAdminSummary(
-        [FromQuery] PaymenteSummaryRequest request,
-        CancellationToken cancellationToken)
-    {
-        var bestClient = await _bestClientService.GetBestClient(cancellationToken);
-        var client = _httpClientFactory.CreateClient(bestClient);
-        var fullUrl = $"{Environment.GetEnvironmentVariable("PAYMENT_PROCESSOR")}/admin/payments-summary";
-        var response = await _paymentClient.GetPaymentSummaryAsync(request, client, fullUrl, cancellationToken);
-        return Ok(response);
-    }
+    //
+    // [HttpGet("admin/payments-summary")]
+    // public async Task<IActionResult> GetAdminSummary(
+    //     [FromQuery] PaymenteSummaryRequest request,
+    //     CancellationToken cancellationToken)
+    // {
+    //     // var bestClient = await _bestClientService.GetBestClient(cancellationToken);
+    //     var client = _httpClientFactory.CreateClient("default");
+    //     var fullUrl = $"{Environment.GetEnvironmentVariable("PAYMENT_PROCESSOR")}/admin/payments-summary";
+    //     var response = await _paymentClient.GetPaymentSummaryAsync(request, client, fullUrl, cancellationToken);
+    //     return Ok(response);
+    // }
 
     [HttpPost("payments")]
     public async Task<IActionResult> CreatePayment(
@@ -91,18 +82,18 @@ public class PaymentsController : ControllerBase
         return Created();
     }
 
-    [HttpPost("purge-payments")]
-    public async Task<IActionResult> PurgePayments(CancellationToken cancellationToken)
-    {
-        var client = _httpClientFactory.CreateClient("default");
-        var clientFallback = _httpClientFactory.CreateClient("fallback");
-        await _paymentClient.PurgePaymentAsync(client, cancellationToken);
-        await _paymentClient.PurgePaymentAsync(clientFallback, cancellationToken);
-        foreach (var chave in _chavesRedis)
-        {
-            await _databaseRedis.KeyDeleteAsync(chave);
-        }
-
-        return Created();
-    }
+    // [HttpPost("purge-payments")]
+    // public async Task<IActionResult> PurgePayments(CancellationToken cancellationToken)
+    // {
+    //     var client = _httpClientFactory.CreateClient("default");
+    //     var clientFallback = _httpClientFactory.CreateClient("fallback");
+    //     await _paymentClient.PurgePaymentAsync(client, cancellationToken);
+    //     await _paymentClient.PurgePaymentAsync(clientFallback, cancellationToken);
+    //     foreach (var chave in _chavesRedis)
+    //     {
+    //         await _databaseRedis.KeyDeleteAsync(chave);
+    //     }
+    //
+    //     return Created();
+    // }
 }
